@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { TaskNodeData, MetadataField } from '../../types/workflow.types';
+import { TaskNodeData } from '../../types/workflow.types';
+import { useNodeForm, useMetadataFields } from '../../hooks/useNodeForm';
 
 interface TaskNodeFormProps {
   data: TaskNodeData;
@@ -8,36 +8,10 @@ interface TaskNodeFormProps {
 }
 
 export const TaskNodeForm = ({ data, onUpdate }: TaskNodeFormProps) => {
-  const [formData, setFormData] = useState<TaskNodeData>(data);
-
-  const handleChange = (
-    field: keyof TaskNodeData,
-    value: string | MetadataField[]
-  ) => {
-    const updated = { ...formData, [field]: value };
-    setFormData(updated);
-    onUpdate(updated);
-  };
-
-  const addCustomField = () => {
-    const updated = [...formData.customFields, { key: '', value: '' }];
-    handleChange('customFields', updated);
-  };
-
-  const updateCustomField = (index: number, field: 'key' | 'value', value: string) => {
-    const updated = [...formData.customFields];
-    updated[index][field] = value;
-    handleChange('customFields', updated);
-  };
-
-  const removeCustomField = (index: number) => {
-    const updated = formData.customFields.filter((_, i) => i !== index);
-    handleChange('customFields', updated);
-  };
-
-  const isDuplicateKey = (keys: string[]) => {
-    return new Set(keys).size !== keys.length;
-  };
+  const { formData, handleChange } = useNodeForm(data, onUpdate);
+  const { fields, addField, updateField, removeField, hasDuplicateKeys } = useMetadataFields(
+    formData.customFields
+  );
 
   return (
     <div className="space-y-4">
@@ -98,35 +72,52 @@ export const TaskNodeForm = ({ data, onUpdate }: TaskNodeFormProps) => {
             Custom Fields
           </label>
           <button
-            onClick={addCustomField}
+            onClick={() => {
+              addField();
+              handleChange('customFields', [...fields, { key: '', value: '' }]);
+            }}
             className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
           >
             <Plus size={16} />
             Add Field
           </button>
         </div>
-        {isDuplicateKey(formData.customFields.map((f) => f.key)) && (
+        {hasDuplicateKeys() && (
           <div className="text-xs text-red-600 mb-2">⚠ Duplicate keys detected</div>
         )}
         <div className="space-y-2">
-          {formData.customFields.map((field, index) => (
+          {fields.map((field, index) => (
             <div key={index} className="flex gap-2">
               <input
                 type="text"
                 value={field.key}
-                onChange={(e) => updateCustomField(index, 'key', e.target.value)}
+                onChange={(e) => {
+                  updateField(index, 'key', e.target.value);
+                  const updated = [...fields];
+                  updated[index].key = e.target.value;
+                  handleChange('customFields', updated);
+                }}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Key"
               />
               <input
                 type="text"
                 value={field.value}
-                onChange={(e) => updateCustomField(index, 'value', e.target.value)}
+                onChange={(e) => {
+                  updateField(index, 'value', e.target.value);
+                  const updated = [...fields];
+                  updated[index].value = e.target.value;
+                  handleChange('customFields', updated);
+                }}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Value"
               />
               <button
-                onClick={() => removeCustomField(index)}
+                onClick={() => {
+                  removeField(index);
+                  const updated = fields.filter((_, i) => i !== index);
+                  handleChange('customFields', updated);
+                }}
                 className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
               >
                 <Trash2 size={16} />

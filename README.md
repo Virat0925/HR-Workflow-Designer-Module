@@ -64,9 +64,14 @@ src/
 │   │   ├── ApprovalNodeForm.tsx
 │   │   ├── AutomatedNodeForm.tsx
 │   │   └── EndNodeForm.tsx
+│   ├── Toolbar.tsx             # Optional toolbar (present but not yet integrated)
 │   ├── Sidebar.tsx             # Draggable node palette
 │   ├── TestPanel.tsx           # Workflow testing sandbox
 │   └── WorkflowCanvas.tsx      # Main React Flow canvas
+├── hooks/                      # Custom React hooks for core logic
+│   ├── useNodeForm.ts          # Form state management for node forms
+│   ├── useWorkflowValidation.ts# Debounced workflow validation + node error sync
+│   └── useKeyboardShortcuts.ts # Keyboard shortcut bindings
 ├── types/
 │   └── workflow.types.ts       # TypeScript type definitions
 └── App.tsx                     # Main application component
@@ -198,7 +203,7 @@ The testing sandbox validates:
 ## What's Implemented
 
 - Full workflow canvas with React Flow
-I updated this README to be concise and interviewer-friendly. It highlights the prototype purpose, how to run it, what is implemented, and notable recent fixes.
+
 
 ## Quick start
 
@@ -223,20 +228,7 @@ Open http://localhost:5175 in your browser.
 - Import safety checks (`src/utils/validateImport.ts`)
 - Toast notifications and `ErrorBoundary` for better UX
 
-## Key files and folders
-
-```
-src/
-├─ api/mockApi.ts
-├─ components/
-│  ├─ nodes/
-│  ├─ forms/
-│  ├─ WorkflowCanvas.tsx
-│  └─ TestPanel.tsx
-├─ utils/validateWorkflow.ts
-├─ utils/validateImport.ts
-└─ types/workflow.types.ts
-```
+<!-- Removed old folder-structure summary to avoid duplication; see Architecture and Recent structural changes sections above -->
 
 ## Implemented features (high level)
 
@@ -255,6 +247,19 @@ src/
 - Per-node validation added for required fields (titles, approver role, automated action/params, end message).
 - JSON imports are validated before being applied to the canvas to avoid corrupt states.
 - UX: replaced blocking alerts with toast notifications and added an ErrorBoundary component.
+
+## Recent structural changes (refactor summary)
+
+- Added a small set of focused custom hooks under `src/hooks/` to centralize business logic and remove duplication:
+  - `useNodeForm` — central form state + sync for all node forms
+  - `useWorkflowValidation` — debounced validation that annotates nodes with per-node errors
+  - `useKeyboardShortcuts` — global keyboard handlers (undo/redo/export/delete)
+- Moved/expanded validation into a refactored module: `src/utils/validateWorkflowRefactored.ts` with a thin facade `src/utils/validateWorkflow.ts` as the public API.
+- Introduced `src/constants/nodeConfig.ts` for all magic strings, color classes, debounce values, and validation messages.
+- Kept reusable utilities in `src/utils/helpers.ts` (debounce/throttle/generateId/safeJsonParse) for future features.
+- Created `src/components/Toolbar.tsx` as a reusable toolbar component; it is currently present in the codebase but not yet wired into the canvas UI (intentional — available for future integration or a small PR to swap the inline buttons in `WorkflowCanvas.tsx`).
+
+These changes focused on removing duplicated validation/history/form logic, improving maintainability, and providing a clear place to add new behaviors.
 
 ## Known limitations & suggestions
 

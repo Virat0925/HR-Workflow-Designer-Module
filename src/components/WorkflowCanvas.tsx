@@ -22,9 +22,11 @@ import { NodeConfigPanel } from './forms/NodeConfigPanel';
 import { TestPanel } from './TestPanel';
 import { WorkflowNodeData, NodeType, SimulationResult } from '../types/workflow.types';
 import { validateWorkflow } from '../utils/validateWorkflow';
-import { simulateWorkflow } from '../api/mockApi';
-import { showToast } from '../utils/toast';
-import { validateImportedWorkflow } from '../utils/validateImport';
+import { simulateWorkflow } from "../api/mockApi";
+import { showToast } from "../utils/toast";
+import { validateImportedWorkflow } from "../utils/validateImports";
+import { useWorkflowValidation, useWorkflowHistory } from '../hooks/useWorkflowValidation';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
@@ -81,9 +83,9 @@ export const WorkflowCanvas = () => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
 
-  const [past, setPast] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
-  const [future, setFuture] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
-  const [validating, setValidating] = useState(false);
+  // Use hooks for validation and history instead of manual state management
+  const { isValidating: validating } = useWorkflowValidation(nodes, edges, setNodes);
+  const { past, future, addToHistory, undo, redo, canUndo, canRedo } = useWorkflowHistory(50);
 
   const onConnect: OnConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -121,8 +123,7 @@ export const WorkflowCanvas = () => {
         data: createDefaultNodeData(type),
       };
 
-      setPast((p) => p.concat([{ nodes: nodes, edges: edges }]));
-      setFuture([]);
+      addToHistory(nodes, edges);
       setNodes((nds) => nds.concat(newNode));
     },
     [reactFlowInstance, setNodes, nodes, edges]
@@ -138,8 +139,7 @@ export const WorkflowCanvas = () => {
 
   const handleNodeUpdate = useCallback(
     (nodeId: string, data: WorkflowNodeData) => {
-      setPast((p) => p.concat([{ nodes: nodes, edges: edges }]));
-      setFuture([]);
+      addToHistory(nodes, edges);
       setNodes((nds) =>
         nds.map((node) => {
           if (node.id === nodeId) {
@@ -157,31 +157,13 @@ export const WorkflowCanvas = () => {
       showToast('Canvas is already empty', 'info');
       return;
     }
-    setNodes((nds) => {
-      setPast((p) => p.concat([{ nodes: nds, edges }]));
-      setFuture([]);
-      return [];
-    });
+    addToHistory(nodes, edges);
+    setNodes([]);
     setEdges([]);
     setSelectedNode(null);
   };
 
-  useEffect(() => {
-    const validation = validateWorkflow(nodes as Node<WorkflowNodeData>[], edges);
-
-    const updatedNodes = nodes.map((n) => {
-      const errs = validation.nodeErrors.filter((e) => e.nodeId === n.id);
-      const current = (n.data as any).validationErrors || [];
-      const same = current.length === errs.length && current.every((c: any, i: number) => c.message === errs[i]?.message);
-      if (same) return n;
-      return { ...n, data: { ...(n.data as any), validationErrors: errs } };
-    });
-
-    const changed = updatedNodes.some((un, i) => un !== nodes[i]);
-    if (changed) {
-      setNodes(updatedNodes);
-    }
-  }, [nodes, edges]);
+  // Validation is now handled by useWorkflowValidation hook - no manual useEffect needed
 
   const exportWorkflow = () => {
     const payload = JSON.stringify({ nodes, edges }, null, 2);
@@ -209,11 +191,8 @@ export const WorkflowCanvas = () => {
           showToast(`Invalid workflow: ${validation.errors[0]}`, 'error');
           return;
         }
-        setNodes((nds) => {
-          setPast((p) => p.concat([{ nodes: nds, edges }]));
-          setFuture([]);
-          return parsed.nodes;
-        });
+        addToHistory(nodes, edges);
+        setNodes(parsed.nodes);
         setEdges(parsed.edges);
         showToast('Workflow imported successfully', 'success');
       } catch (err) {
@@ -227,19 +206,7 @@ export const WorkflowCanvas = () => {
 
   const runValidationOnly = async () => {
     if (validating) return; 
-    setValidating(true);
     try {
-      const validation = validateWorkflow(nodes as Node<WorkflowNodeData>[], edges);
-      const updatedNodes = nodes.map((n) => {
-        const errs = validation.nodeErrors.filter((e) => e.nodeId === n.id);
-        const current = (n.data as any).validationErrors || [];
-        const same = current.length === errs.length && current.every((c: any, i: number) => c.message === errs[i]?.message);
-        if (same) return n;
-        return { ...n, data: { ...(n.data as any), validationErrors: errs } };
-      });
-      const changed = updatedNodes.some((un, i) => un !== nodes[i]);
-      if (changed) setNodes(updatedNodes);
-
       setShowTestPanel(true);
       const res = await simulateWorkflow(nodes, edges);
       setInitialTestResult(res);
@@ -247,35 +214,26 @@ export const WorkflowCanvas = () => {
       console.error('Validation failed', err);
       showToast('Validation error: ' + (err instanceof Error ? err.message : 'Unknown error'), 'error');
       setInitialTestResult({ success: false, steps: [], errors: ['Validation failed'] });
-    } finally {
-      setValidating(false);
     }
   };
 
-  const undo = useCallback(() => {
-    setPast((p) => {
-      if (p.length === 0) return p;
-      const last = p[p.length - 1];
-      setFuture((f) => [{ nodes, edges }, ...f]);
-      setNodes(last.nodes);
-      setEdges(last.edges);
-      return p.slice(0, p.length - 1);
-    });
-  }, [nodes, edges]);
-
-  const redo = useCallback(() => {
-    setFuture((f) => {
-      if (f.length === 0) return f;
-      const next = f[0];
-      setPast((p) => p.concat([{ nodes, edges }]));
-      setNodes(next.nodes);
-      setEdges(next.edges);
-      return f.slice(1);
-    });
-  }, [nodes, edges]);
+  // Undo/redo now handled by useWorkflowHistory hook
+  // Setup keyboard shortcuts
+  useKeyboardShortcuts({
+    onUndo: () => undo(nodes, edges, setNodes, setEdges),
+    onRedo: () => redo(nodes, edges, setNodes, setEdges),
+    onDelete: () => {
+      if (selectedNode) {
+        setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
+        setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
+        setSelectedNode(null);
+      }
+    },
+    onExport: exportWorkflow,
+  });
 
   return (
-    <div className="flex-1 relative" ref={reactFlowWrapper}>
+    <div className="flex-1 relative w-full h-full" ref={reactFlowWrapper}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -340,18 +298,18 @@ export const WorkflowCanvas = () => {
           <input type="file" accept="application/json" onChange={importWorkflow} className="hidden" />
         </label>
         <button
-          onClick={undo}
-          disabled={past.length === 0}
+          onClick={() => undo(nodes, edges, setNodes, setEdges)}
+          disabled={!canUndo}
           className="px-3 py-2 bg-white text-gray-700 rounded-md hover:bg-gray-50 shadow border border-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title={past.length === 0 ? 'No undo history' : 'Undo'}
+          title={!canUndo ? 'No undo history' : 'Undo (Ctrl+Z)'}
         >
           Undo
         </button>
         <button
-          onClick={redo}
-          disabled={future.length === 0}
+          onClick={() => redo(nodes, edges, setNodes, setEdges)}
+          disabled={!canRedo}
           className="px-3 py-2 bg-white text-gray-700 rounded-md hover:bg-gray-50 shadow border border-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title={future.length === 0 ? 'No redo history' : 'Redo'}
+          title={!canRedo ? 'No redo history' : 'Redo (Ctrl+Y)'}
         >
           Redo
         </button>

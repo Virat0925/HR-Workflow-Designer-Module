@@ -54,11 +54,11 @@ export const Sidebar = () => {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 p-4 overflow-y-auto">
+    <aside className="w-64 bg-white border-r border-gray-200 p-4 overflow-y-auto" role="region" aria-label="Node palette">
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Node Palette</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Drag nodes onto the canvas
+          Drag nodes onto the canvas to build your workflow
         </p>
       </div>
 
@@ -71,10 +71,19 @@ export const Sidebar = () => {
               draggable
               onDragStart={(e) => onDragStart(e, nodeType.type)}
               className="p-3 border-2 border-gray-200 rounded-lg cursor-move hover:border-blue-400 hover:shadow-md transition-all"
+              role="button"
+              tabIndex={0}
+              aria-label={`${nodeType.label} node - ${nodeType.description}`}
+              onKeyDown={(e) => {
+                // Allow keyboard interaction if needed in future
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                }
+              }}
             >
               <div className="flex items-center gap-2 mb-1">
                 <div className={`${nodeType.color} p-1.5 rounded text-white`}>
-                  <Icon size={16} />
+                  <Icon size={16} aria-hidden="true" />
                 </div>
                 <span className="font-medium text-gray-900 text-sm">
                   {nodeType.label}

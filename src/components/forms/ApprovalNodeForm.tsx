@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { ApprovalNodeData } from '../../types/workflow.types';
+import { useNodeForm } from '../../hooks/useNodeForm';
 
 interface ApprovalNodeFormProps {
   data: ApprovalNodeData;
@@ -7,13 +7,7 @@ interface ApprovalNodeFormProps {
 }
 
 export const ApprovalNodeForm = ({ data, onUpdate }: ApprovalNodeFormProps) => {
-  const [formData, setFormData] = useState<ApprovalNodeData>(data);
-
-  const handleChange = (field: keyof ApprovalNodeData, value: string | number) => {
-    const updated = { ...formData, [field]: value };
-    setFormData(updated);
-    onUpdate(updated);
-  };
+  const { formData, handleChange } = useNodeForm(data, onUpdate);
 
   return (
     <div className="space-y-4">

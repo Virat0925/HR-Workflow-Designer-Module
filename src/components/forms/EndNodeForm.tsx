@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { EndNodeData } from '../../types/workflow.types';
+import { useNodeForm } from '../../hooks/useNodeForm';
 
 interface EndNodeFormProps {
   data: EndNodeData;
@@ -7,13 +7,7 @@ interface EndNodeFormProps {
 }
 
 export const EndNodeForm = ({ data, onUpdate }: EndNodeFormProps) => {
-  const [formData, setFormData] = useState<EndNodeData>(data);
-
-  const handleChange = (field: keyof EndNodeData, value: string | boolean) => {
-    const updated = { ...formData, [field]: value };
-    setFormData(updated);
-    onUpdate(updated);
-  };
+  const { formData, handleChange } = useNodeForm(data, onUpdate);
 
   return (
     <div className="space-y-4">

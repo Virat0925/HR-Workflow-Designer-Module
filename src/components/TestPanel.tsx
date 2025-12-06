@@ -100,7 +100,7 @@ export const TestPanel = ({ nodes, edges, initialResult, onClose }: TestPanelPro
 
         {result && (
           <div className="space-y-4">
-            {(result.errors.length > 0 || nodeLevelErrors.length > 0) && (
+            {result.errors.length > 0 || nodeLevelErrors.length > 0 ? (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <div className="flex items-start gap-2">
                   <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
@@ -117,39 +117,43 @@ export const TestPanel = ({ nodes, edges, initialResult, onClose }: TestPanelPro
                   </div>
                 </div>
               </div>
-            )}
-
-            {result.steps.length > 0 && (
+            ) : (
               <div>
                 <h3 className="font-medium text-gray-900 mb-3">Execution Timeline</h3>
                 <div className="space-y-2">
-                  {result.steps.map((step, index) => (
-                    <div
-                      key={step.nodeId}
-                      className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
-                    >
-                      <div className="flex-shrink-0 mt-0.5">
-                        {getStepIcon(step)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-mono text-gray-500">
-                            Step {index + 1}
-                          </span>
-                          <span className="text-xs font-medium text-gray-600 uppercase">
-                            {step.nodeType}
-                          </span>
+                  {result.steps.length > 0 ? (
+                    result.steps.map((step, index) => (
+                      <div
+                        key={step.nodeId}
+                        className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          {getStepIcon(step)}
                         </div>
-                        <p className="text-sm text-gray-900 font-medium">
-                          {step.nodeTitle}
-                        </p>
-                        <p className="text-sm text-gray-600 mt-1">{step.message}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {new Date(step.timestamp).toLocaleTimeString()}
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-mono text-gray-500">
+                              Step {index + 1}
+                            </span>
+                            <span className="text-xs font-medium text-gray-600 uppercase">
+                              {step.nodeType}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-900 font-medium">
+                            {step.nodeTitle}
+                          </p>
+                          <p className="text-sm text-gray-600 mt-1">{step.message}</p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {new Date(step.timestamp).toLocaleTimeString()}
+                          </p>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500 italic">
+                      No steps to display
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}

@@ -34,9 +34,37 @@ export const simulateWorkflow = async (
         return;
       }
 
-      const sortedNodes = topologicalSort(nodes, edges);
+      // Find start node
+      const startNode = nodes.find((n) => (n as any).data?.type === 'start');
+      if (!startNode) {
+        resolve({ success: false, steps, errors: ['No start node found'] });
+        return;
+      }
 
-      sortedNodes.forEach((node, index) => {
+      // Build adjacency list
+      const adjacencyList = new Map<string, string[]>();
+      nodes.forEach((node) => adjacencyList.set(node.id, []));
+      edges.forEach((edge) => {
+        const targets = adjacencyList.get(edge.source) || [];
+        targets.push(edge.target);
+        adjacencyList.set(edge.source, targets);
+      });
+
+      // Follow the execution path from start to end
+      const executedNodeIds = new Set<string>();
+      const nodeQueue: string[] = [startNode.id];
+      let stepIndex = 0;
+
+      while (nodeQueue.length > 0 && stepIndex < 100) { // Limit to 100 steps to prevent infinite loops
+        const nodeId = nodeQueue.shift()!;
+        
+        // Skip if already executed (prevent revisiting)
+        if (executedNodeIds.has(nodeId)) continue;
+        executedNodeIds.add(nodeId);
+
+        const node = nodes.find((n) => n.id === nodeId);
+        if (!node) continue;
+
         const nodeData = (node as any).data;
         let message = '';
 
@@ -65,53 +93,21 @@ export const simulateWorkflow = async (
           nodeType: nodeData.type,
           status: 'completed',
           message,
-          timestamp: new Date(Date.now() + index * 1000).toISOString(),
+          timestamp: new Date(Date.now() + stepIndex * 1000).toISOString(),
         });
-      });
+
+        // Stop if we reach an end node
+        if (nodeData.type === 'end') {
+          break;
+        }
+
+        // Add next nodes to queue
+        const nextNodeIds = adjacencyList.get(nodeId) || [];
+        nodeQueue.push(...nextNodeIds);
+        stepIndex++;
+      }
 
       resolve({ success: errors.length === 0, steps, errors });
     }, 500);
   });
 };
-
-function topologicalSort(nodes: Node[], edges: Edge[]): Node[] {
-  const adjacencyList = new Map<string, string[]>();
-  nodes.forEach((node) => adjacencyList.set(node.id, []));
-  edges.forEach((edge) => {
-    const targets = adjacencyList.get(edge.source) || [];
-    targets.push(edge.target);
-    adjacencyList.set(edge.source, targets);
-  });
-
-  // Kahn's algorithm: use in-degree to process nodes in order
-  const inDegree = new Map<string, number>();
-  nodes.forEach((n) => inDegree.set(n.id, 0));
-  edges.forEach((e) => {
-    inDegree.set(e.target, (inDegree.get(e.target) || 0) + 1);
-  });
-
-  const queue: string[] = [];
-  nodes.forEach((n) => {
-    if (inDegree.get(n.id) === 0) {
-      queue.push(n.id);
-    }
-  });
-
-  const sorted: Node[] = [];
-  while (queue.length > 0) {
-    const nodeId = queue.shift()!;
-    const node = nodes.find((n) => n.id === nodeId);
-    if (node) sorted.push(node);
-
-    const neighbors = adjacencyList.get(nodeId) || [];
-    for (const neighbor of neighbors) {
-      const newDegree = (inDegree.get(neighbor) || 1) - 1;
-      inDegree.set(neighbor, newDegree);
-      if (newDegree === 0) {
-        queue.push(neighbor);
-      }
-    }
-  }
-
-  return sorted;
-}

@@ -3,6 +3,7 @@ import { AlertCircle } from 'lucide-react';
 import { AutomatedNodeData, AutomationAction } from '../../types/workflow.types';
 import { getAutomations } from '../../api/mockApi';
 import { showToast } from '../../utils/toast';
+import { useNodeForm } from '../../hooks/useNodeForm';
 
 interface AutomatedNodeFormProps {
   data: AutomatedNodeData;
@@ -10,7 +11,7 @@ interface AutomatedNodeFormProps {
 }
 
 export const AutomatedNodeForm = ({ data, onUpdate }: AutomatedNodeFormProps) => {
-  const [formData, setFormData] = useState<AutomatedNodeData>(data);
+  const { formData, handleChange } = useNodeForm(data, onUpdate);
   const [actions, setActions] = useState<AutomationAction[]>([]);
   const [selectedAction, setSelectedAction] = useState<AutomationAction | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,12 +37,6 @@ export const AutomatedNodeForm = ({ data, onUpdate }: AutomatedNodeFormProps) =>
     };
     loadActions();
   }, [formData.actionId]);
-
-  const handleChange = (field: keyof AutomatedNodeData, value: string | Record<string, string>) => {
-    const updated = { ...formData, [field]: value };
-    setFormData(updated);
-    onUpdate(updated);
-  };
 
   const handleActionChange = (actionId: string) => {
     const action = actions.find((a) => a.id === actionId);
